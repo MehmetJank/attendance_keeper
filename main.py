@@ -1,5 +1,6 @@
 from tkinter import (
     Tk,
+    ttk,
     Frame,
     Entry,
     Button,
@@ -11,74 +12,56 @@ from tkinter import (
     filedialog,
     messagebox,
 )
-from tkinter import ttk
 from openpyxl import load_workbook
 from xlwt import Workbook
 
 
 class ImportExportExcel:
     def __init__(self):
-        self.combo_box_items = []
         self.attented_students = []
 
     def open_file_dialog(self):
-        print("open_file_dialog function called")
+        """Open file dialog and get file path"""
         self.file_path = filedialog.askopenfilename(
-            initialdir="/",
-            title="Select file",
+            title="Import Excel File",
             filetypes=(("Excel files", "*.xlsx*"), ("all files", "*.*")),
         )
         self.wb = load_workbook(self.file_path)
         self.ws = self.wb.active
 
     def get_combo_box_items(self):
-        print("combo_box_items function called")
+        """Get combo box items from excel file"""
+        self.combo_box_items = []
         if hasattr(self, "ws"):
-            for cell in self.ws["D"][1:]:
-                self.combo_box_items.append(cell.value)
-            self.combo_box_items = list(set(self.combo_box_items))
+            self.combo_box_items = list(set(cell.value for cell in self.ws["D"][1:]))
             self.combo_box_items.sort()
-            print(self.combo_box_items)
             return self.combo_box_items
 
     def get_section(self, index: int):
-        print("get_section function called")
-        section_list = []
+        """Get section from excel file"""
         combo_box_items = self.get_combo_box_items()
         if combo_box_items is None or index >= len(combo_box_items):
-            print("Invalid index or combo box items is None")
-            return section_list
+            return []
         section = combo_box_items[index]
-        for row in self.ws.iter_rows(min_row=2, min_col=1, max_col=4):
-            cell = row[3]
-            if cell.value == section:
-                name_surname = row[1].value.split()
-                if len(name_surname) > 1:
-                    last_name = name_surname[-1]
-                    first_name = " ".join(name_surname[:-1])
-                    section_list.append(
-                        last_name + ", " + first_name + ", " + str(row[0].value)
-                    )
-                else:
-                    section_list.append(name_surname[0] + ", " + str(row[0].value))
-                section_list.sort()
-        return section_list
+        return (
+            f"{row[1].value.rsplit(' ', 1)[-1]}, {row[1].value.rsplit(' ', 1)[0]}, {row[0].value}"
+            if " " in row[1].value
+            else f"{row[1].value}, {row[0].value}"
+            for row in self.ws.iter_rows(min_row=2, min_col=1, max_col=4)
+            if row[3].value == section
+        )
 
     def get_attended_students(self, item: str = None, process: str = None):
-        print("get_attanted_students function called")
+        """Add, remove or clear attended students"""
         if process == "append":
             self.attented_students.append(item)
         elif process == "remove":
             self.attented_students.remove(item)
         elif process == "clear":
             self.attented_students.clear()
-        print(f"Listenin Son Hali {self.attented_students}")
 
     def export_type(self, file_type: str, file_name: str):
-        print(file_type, file_name)
-        print("export file function called")
         if file_type == "txt":
-            print("file type is txt")
             with open(file_name, "w", encoding="utf-8") as f:
                 for student in self.attented_students:
                     student_info = student.split(", ")
@@ -86,12 +69,12 @@ class ImportExportExcel:
                     name = ", ".join(student_info[:-1])
                     department = self.ws[f"C{student_id}"].value
                     f.write(f"{name}, {department}\n")
+                messagebox.showinfo("Success", "Exported to txt file successfully!")
         elif file_type == "xls":
-            print("file type is xls")
             workbook = Workbook()
             worksheet = workbook.add_sheet("Attendance")
             row_num = 0
-            # Tablo başlıklarını ekle
+            # Create ID ,Name and Department columns
             columns = ["ID", "Name", "Department"]
             for col_num, column_title in enumerate(columns):
                 worksheet.write(row_num, col_num, column_title)
@@ -107,10 +90,10 @@ class ImportExportExcel:
                 worksheet.write(row_num, 2, department)
                 row_num += 1
             workbook.save(file_name)
+            messagebox.showinfo("Success", "Exported to xls file successfully!")
         elif file_type == "csv":
-            print("file type is csv")
-            messagebox.showerror("Error", "CSV export is not supported.")
-            raise BaseException("CSV Dosya tipi desteklenmiyor")
+            messagebox.showerror("Error", "CSV File type is not supported!")
+            raise BaseException("CSV File type is not supported!")
 
 
 class AttendanceKeeperApp(Frame):
@@ -187,7 +170,7 @@ class AttendanceKeeperApp(Frame):
         bind: object = None,
     ):
         if listbox is None:
-            listbox = Listbox(width=30, height=5, selectmode="multiple")
+            listbox = Listbox(width=40, height=5, selectmode="multiple")
             listbox.grid(
                 row=row,
                 column=column,
@@ -199,57 +182,16 @@ class AttendanceKeeperApp(Frame):
             )
         else:
             listbox.delete(0, END)
-        try:
-            for item in list_values:
-                listbox.insert(END, item)
-        except:
-            pass
+
+        for item in list_values:
+            listbox.insert(END, item)
+
         listbox.bind("<<ListboxSelect>>", lambda event: bind)
 
         return listbox
 
     # Custom Combo Box
     def custom_combo_box(
-        self,
-        row: int,
-        column: int,
-        width: int,
-        height: int,
-        file_name: str = None,
-        list_values: list = [],
-        bind: object = None,
-    ):
-        combo = ttk.Combobox(width=width, height=height)
-        combo.grid(
-            row=row,
-            column=column,
-            columnspan=1,
-            rowspan=1,
-            padx=3,
-            pady=3,
-            sticky="nswe",
-        )
-        combo["values"] = list_values
-
-        try:
-            combo.current(0)
-        except:
-            pass
-        if file_name == None:
-            print("file_name is None")
-            combo.bind(
-                "<<ComboboxSelected>>",
-                lambda event: bind(combo.current()),
-            )
-        else:
-            print("file_name is not None")
-            print(combo.current())
-            combo.bind(
-                "<<ComboboxSelected>>",
-                lambda event: bind(combo.current(), file_name),
-            )
-
-    def custom_combo_box_only_design(
         self,
         row: int,
         column: int,
@@ -272,7 +214,6 @@ class AttendanceKeeperApp(Frame):
 
     def update_listbox(self, index: int = 0, side: int = 0):
         """Updates the listbox with the selected combo box item."""
-        print("update_listbox function called")
         if side == 0:  # side 0 is left listbox
             self.list_values_left = []
             self.list_values_left = self.import_export_excel.get_section(index)
@@ -292,7 +233,7 @@ class AttendanceKeeperApp(Frame):
         """Moves the selected items between listboxes"""
         selected_items = source_listbox.curselection()
         if selected_items == ():
-            print("No item selected")
+            messagebox.showerror("Error", "No item selected!")
             return
         selected_items = sorted(selected_items, reverse=True)
         for item_in_list in selected_items:
@@ -312,9 +253,10 @@ class AttendanceKeeperApp(Frame):
     def update_combo_box(self, index: int = 0):
         """Updates the combo box with the selected file."""
         self.section_combo_box_items = self.import_export_excel.get_combo_box_items()
+        # if combo box empty then add a default value
         if self.section_combo_box_items == None:
             self.section_combo_box_items = ["Import a file first"]
-        self.section_combo_box = self.custom_combo_box_only_design(
+        self.section_combo_box = self.custom_combo_box(
             row=3,
             column=2,
             width=15,
@@ -332,16 +274,19 @@ class AttendanceKeeperApp(Frame):
         self.update_listbox(index=self.section_combo_box.current(), side=0)
 
     def import_button(self):
-        """Imports the excel file and updates the combo box"""
+        """This function open file explorer and get the excel file and call import_file function"""
         self.import_export_excel.open_file_dialog(),
         self.update_combo_box()
         self.combo_box_items = self.import_export_excel.get_combo_box_items()
 
     def export_button(self):
-        """Exports the listbox items to an excel file"""
+        """This fuction get export type and file name from user and export the excel file and call export_type function"""
         week_value = self.week_input.get()
         section_value = self.selected_section.get()
         file_type = self.file_type_combo_box.get()
+        if week_value == "" or section_value == "":
+            messagebox.showerror("Error", "Week and Section must be selected!")
+            return
         file_name = section_value + " Week " + week_value + "." + file_type
         self.import_export_excel.export_type(file_type, file_name)
 
@@ -462,7 +407,7 @@ class AttendanceKeeperApp(Frame):
         # Row 6
         # Please selct file type text label
         self.custom_text_label(
-            text="Please select file type:",
+            text=" Please select file type:",
             row=6,
             column=0,
             font="Arial 10 bold",
@@ -472,7 +417,7 @@ class AttendanceKeeperApp(Frame):
 
         # File type combobox
         self.file_types = ["txt", "xls", "csv"]
-        self.file_type_combo_box = self.custom_combo_box_only_design(
+        self.file_type_combo_box = self.custom_combo_box(
             row=6, column=1, width=5, height=5
         )
         self.file_type_combo_box["values"] = self.file_types
@@ -506,7 +451,8 @@ class AttendanceKeeperApp(Frame):
 
 def main():
     root = Tk()
-    root.geometry("750x250")
+    root.geometry("780x250")
+    root.resizable(False, False)
     app = AttendanceKeeperApp(root)
     root.mainloop()
 
