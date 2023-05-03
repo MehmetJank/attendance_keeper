@@ -1,3 +1,6 @@
+# Description: Attendance Keeper App for school project
+# Author: Mehmet Can Kaya
+
 from tkinter import (
     Tk,
     ttk,
