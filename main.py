@@ -306,7 +306,7 @@ class AttendanceKeeperApp(Frame):
         # Row 0
         # Application title
         self.custom_text_label(
-            text="AttandanceKeeper v1.0",
+            text="AttendanceKeeper v1.0",
             row=0,
             column=0,
             font="Arial 24 bold",
